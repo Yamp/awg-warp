@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily AmneziaWG update at 03:00 Moscow time
+
+[Timer]
+OnCalendar=*-*-* 00:00:00 UTC
+Persistent=true
+Unit=awg-auto-update.service
+
+[Install]
+WantedBy=timers.target

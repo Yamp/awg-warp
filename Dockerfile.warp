@@ -1,0 +1,27 @@
+FROM debian:bookworm
+ARG WGCF_VERSION=2.2.30
+ARG TARGETARCH
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash ca-certificates curl iproute2 procps wireguard-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN set -eux; \
+    case "${TARGETARCH:-amd64}" in \
+      amd64) arch=amd64 ;; \
+      arm64) arch=arm64 ;; \
+      386) arch=386 ;; \
+      *) echo "Unsupported TARGETARCH=${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL -o /usr/local/bin/wgcf \
+      "https://github.com/ViRb3/wgcf/releases/download/v${WGCF_VERSION}/wgcf_${WGCF_VERSION}_linux_${arch}"; \
+    chmod +x /usr/local/bin/wgcf
+
+COPY entrypoint-warp.sh /usr/local/bin/entrypoint-warp.sh
+
+RUN mkdir -p /etc/wireguard /data \
+    && chmod +x /usr/local/bin/entrypoint-warp.sh
+
+VOLUME ["/data"]
+EXPOSE 51820/udp
+ENTRYPOINT ["/usr/local/bin/entrypoint-warp.sh"]

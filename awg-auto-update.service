@@ -1,0 +1,10 @@
+[Unit]
+Description=Rebuild and restart AmneziaWG container
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/awg-warp
+ExecStart=/root/awg-warp/update-awg.sh

@@ -1,0 +1,42 @@
+FROM golang:1.24-bookworm AS awg-go-builder
+ARG AMNEZIAWG_GO_REF=master
+RUN git clone https://github.com/amnezia-vpn/amneziawg-go.git /src \
+    && cd /src \
+    && git checkout "${AMNEZIAWG_GO_REF}" \
+    && git submodule update --init --recursive
+WORKDIR /src
+RUN make
+
+FROM debian:bookworm AS awg-tools-builder
+ARG AMNEZIAWG_TOOLS_REF=master
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential ca-certificates git pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+RUN git clone https://github.com/amnezia-vpn/amneziawg-tools.git /src \
+    && cd /src \
+    && git checkout "${AMNEZIAWG_TOOLS_REF}" \
+    && git submodule update --init --recursive
+WORKDIR /src/src
+RUN make && make install WITH_WGQUICK=yes WITH_BASHCOMPLETION=no WITH_SYSTEMDUNITS=no
+
+FROM debian:bookworm
+LABEL awg-warp.role="awg"
+ARG AMNEZIAWG_GO_REF=master
+ARG AMNEZIAWG_TOOLS_REF=master
+LABEL awg-warp.amneziawg-go-ref="${AMNEZIAWG_GO_REF}"
+LABEL awg-warp.amneziawg-tools-ref="${AMNEZIAWG_TOOLS_REF}"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash ca-certificates curl iproute2 iptables procps \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=awg-go-builder /src/amneziawg-go /usr/local/bin/amneziawg-go
+COPY --from=awg-tools-builder /usr/bin/awg /usr/bin/awg
+COPY --from=awg-tools-builder /usr/bin/awg-quick /usr/bin/awg-quick
+COPY entrypoint-awg.sh /usr/local/bin/entrypoint-awg.sh
+
+RUN mkdir -p /etc/amnezia/amneziawg /data /run/amneziawg \
+    && chmod +x /usr/local/bin/entrypoint-awg.sh
+
+VOLUME ["/data"]
+ENTRYPOINT ["/usr/local/bin/entrypoint-awg.sh"]
